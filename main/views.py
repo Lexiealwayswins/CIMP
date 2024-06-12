@@ -566,6 +566,11 @@ class ProfileHandler:
         current_user = request.user
         if current_user.usertype != 2000 and current_user.usertype != 3000:
             return JsonResponse({'ret': 2, 'msg': '仅限老师和学生操作'})
-        paperid = request.pd.get('paperid')
-        ret = Profile.listteachers(paperid)
+        paper_id = request.pd.get('paperid')
+        ret = Profile.listteachers(paper_id, current_user)
         return JR(ret)
+    
+    
+class ThumbupHandler:
+    def handle(self, request):
+        if 

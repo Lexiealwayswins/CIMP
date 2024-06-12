@@ -961,7 +961,20 @@ class Profile(models.Model):
         except:
             err = traceback.format_exc()
             return {'ret': 2, 'msg': err}
+
         
+class Thumbup(models.Model):
+    paper_id = models.ForeignKey(Paper, on_delete=models.CASCADE, related_name = 'thumbup')
+    thumbuper = models.ForeignKey(User, on_delete=models.CASCADE, related_name = 'thumbuper')
+    
     @staticmethod
-    def thumbuporcancel(paperid):
-        pass
+    def thumbuporcancel(paper_id, current_user):
+        try:
+            paper = Paper.objects.get(id=paper_id)
+        
+            return {"ret": 0, "thumbupcount": count}
+        except Paper.DoesNotExist:
+            return {'ret': 1, 'msg': f'id为{paper_id}的用户不存在'}
+        except:
+            err = traceback.format_exc()
+            return {'ret': 2, 'msg': err}
