@@ -957,7 +957,6 @@ class Profile(models.Model):
             
             return {"ret": 0, "items":retlist, "total": qs.count(), "keyword": keywords}
                 
-            
         except:
             err = traceback.format_exc()
             return {'ret': 2, 'msg': err}
@@ -966,15 +965,103 @@ class Profile(models.Model):
 class Thumbup(models.Model):
     paper_id = models.ForeignKey(Paper, on_delete=models.CASCADE, related_name = 'thumbup')
     thumbuper = models.ForeignKey(User, on_delete=models.CASCADE, related_name = 'thumbuper')
+    thumbup = models.BooleanField(default=False)
     
     @staticmethod
     def thumbuporcancel(paper_id, current_user):
         try:
+            thumbup = Thumbup.objects.get(id=paper_id, thumbuper=current_user)
             paper = Paper.objects.get(id=paper_id)
+            if thumbup.thumbup == True:
+                thumbup.thumbup = False
+                paper.thumbupcount -= 1
+            else:
+                thumbup.thumbup = True
+                paper.thumbupcount += 1               
+            
+            thumbup.save()
+            paper.save()
         
-            return {"ret": 0, "thumbupcount": count}
+            return {"ret": 0, "thumbupcount": paper.thumbupcount}
         except Paper.DoesNotExist:
             return {'ret': 1, 'msg': f'id为{paper_id}的用户不存在'}
         except:
             err = traceback.format_exc()
             return {'ret': 2, 'msg': err}
+        
+        
+class GraduateDesign(models.Model):
+    
+    id = models.BigAutoField(primary_key=True)
+
+    # 创建者的id，使用外键与 User 模型的 id 字段关联
+    creator = models.ForeignKey(User, on_delete=models.CASCADE, related_name = 'notice')
+    
+    # 创建者的真实姓名，直接从关联的 User 模型中获取
+    creator_realname = models.CharField(max_length=30, db_index=True)
+    
+    title = models.CharField(max_length=1000)
+    
+    # "结束"， "主题被驳回"
+    currentstate = models.CharField(max_length=200)
+    
+    # 创建时间，为iso格式
+    createdate = models.DateTimeField(default=timezone.now)
+    
+    @staticmethod
+    def listbypage(pagenum, pagesize, keywords):
+        try:
+            qs = GraduateDesign.objects.values("id",
+                                        "creator",
+                                        "creator_realname",
+                                        "title",
+                                        "currentstate",
+                                        "createdate"
+            )
+            
+            if keywords:
+                conditions = [Q(content__contains=one) for one in keywords.split(' ') if one]
+                query = Q()
+                for condition in conditions:
+                    query &= condition
+                qs = qs.filter(query)
+                
+            pgnt = Paginator(qs, pagesize)
+            
+            page = pgnt.page(pagenum)
+            
+            retlist = list(page)
+            
+            return {"ret": 0, "items": retlist, "total": pgnt.count, 'keywords': keywords}
+            
+        except EmptyPage:
+            return {'ret': 0, 'items': [], 'total': 0, 'keywords': ""}
+        
+        except:
+            err = traceback.format_exc()
+            return {'ret': 2, 'msg': err} 
+    
+    # 获取一个工作流信息
+    @staticmethod
+    def getone(wf_id, withwhaticando):
+        try:
+            qs = Notice.objects.values("id",
+                                        "pubdate",
+                                        "author",
+                                        "author_realname",
+                                        "title",
+                                        "content",
+                                        "status"
+            )
+            
+            # 返回查询集中的第一个对象，或者如果查询集为空，则返回 None。first是一个快捷方法，用于从查询集中获取单个对象，而无需进行完整的迭代。
+            qs = qs.filter(id=notice_id).first()
+            
+            return {'ret': 0, 'rec': qs}
+            
+        except Notice.DoesNotExist:
+            return {'ret': 1, 'msg': f'id为{notice_id}的用户不存在'}
+        except:
+            err = traceback.format_exc()
+            return {'ret': 2, 'msg': err}
+      

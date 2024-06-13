@@ -40,4 +40,8 @@ urlpatterns = [
     
     path('api/etc', views.ProfileHandler().handle),
     
-] + static("/", document_root="./z_dist")
+    path('api/wf_graduatedesign', views.GraduateDesignHandler().handle),
+    
+] 
+
+# + static("/", document_root="./z_dist")

@@ -3,7 +3,7 @@ from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.hashers import make_password
 from django.http import JsonResponse
 from lib.share import JR
-from main.models import User, Notice, News, Paper, Config, Profile
+from main.models import User, Notice, News, Paper, Config, Profile, Thumbup, GraduateDesign
 from config.settings import UPLOAD_DIR
 from datetime import datetime
 from django.utils import timezone
@@ -13,11 +13,19 @@ from random import randint
 class SignHandler:
     def handle(self, request):
         # parameters data called pd, it's a dict
-        pd = json.loads(request.body)
-        # try:
-        #     pd = json.loads(request.body)
-        # except json.JSONDecodeError:
-        #     return JsonResponse({'ret': 1, 'msg': 'Invalid JSON data'}, status=400)
+        if request.method == "GET":
+            return JsonResponse({"message": "This endpoint does not support GET requests."}, status=405)
+
+        if request.method == "POST":
+            try:
+                if not request.body:
+                    return JsonResponse({"error": "Empty request body"}, status=400)
+
+                pd = json.loads(request.body)
+                # Process the data as needed
+                return JsonResponse({"message": "Data processed successfully."})
+            except json.JSONDecodeError:
+                return JsonResponse({"error": "Invalid JSON"}, status=400)
         
         action = pd.get('action')
         
@@ -566,11 +574,48 @@ class ProfileHandler:
         current_user = request.user
         if current_user.usertype != 2000 and current_user.usertype != 3000:
             return JsonResponse({'ret': 2, 'msg': '仅限老师和学生操作'})
-        paper_id = request.pd.get('paperid')
-        ret = Profile.listteachers(paper_id, current_user)
+        paper_id = request.get('paperid')
+        ret = Thumbup.listteachers(paper_id, current_user)
+        return JR(ret)
+
+class GraduateDesignHandler:
+    def handle(self, request):
+        if request.method == 'GET':
+            pd = request.GET
+        else:
+            pd = json.loads(request.body)
+        
+        request.pd = pd
+        
+        action = pd.get('action')
+        if action == 'listbypage':
+            return self.listbypage(request)
+        elif action == 'getone':
+            return self.getone(request)
+        elif action == 'stepaction':
+            return self.stepaction(request)
+        elif action == 'getstepactiondata':
+            return self.getstepactiondata(request)
+        else:
+            return JsonResponse({'ret': 2, 'msg': 'action 参数错误'})
+        
+        
+    def listbypage(self, request):
+        pagenum = int(request.pd.get('pagenum'))
+        pagesize = int(request.pd.get('pagesize'))
+        keywords = str(request.pd.get('keywords'))
+        
+        ret = GraduateDesign.listbypage(pagenum, pagesize, keywords)
         return JR(ret)
     
+    def getone(self, request):
+        wf_id = request.pd.get('wf_id')
+        withwhatcanido = request.pd.get('withwhatcanido')
+        ret = GraduateDesign.getone(wf_id, withwhatcanido)
+        return JR(ret)
     
-class ThumbupHandler:
-    def handle(self, request):
-        if 
+    def stepaction(self, request):
+        pass
+    
+    def getstepactiondata(self, request):
+        pass
