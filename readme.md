@@ -45,33 +45,17 @@ This feature implements a **Finite State Machine (FSM)** for business processes 
 
 > Start -\> Student Creates Topic -\> Teacher Reviews -\> (Reject/Approve) -\> Student Submits Design -\> Teacher Grades -\> End
 
-## 📂 Project Structure
-
-```bash
-CIMP/
-├── manage.py
-├── config/               # Project settings (settings.py, etc.)
-│   └── settings.py       # Contains UPLOAD_DIR configuration
-├── lib/
-│   └── share.py          # Utility library (JSON Response wrapper)
-├── main/                 # Core Application
-│   ├── models.py         # Data Models & Workflow Configuration (WF_RULE)
-│   ├── views.py          # Request Handlers (Dispatcher Pattern)
-│   └── urls.py           # URL Routing
-└── upload/               # Static file upload directory
-```
-
 ## 🚀 Quick Start
 
 ### 1\. Prerequisites
 
 ```bash
 # Clone the repository
-git clone <your-repo-url>
+git clone https://github.com/Lexiealwayswins/CIMP.git
 cd CIMP
 
 # Install dependencies (assuming requirements.txt exists)
-pip install django
+pip install -r requirements.txt
 ```
 
 ### 2\. Database Initialization
