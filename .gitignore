@@ -5,9 +5,18 @@ config/__pycache__/
 *.pyo
 *.pyd
 .Python
+.vscode/
+
 
 test/
 z_dist/
 .DS_Store
 db.sqlite3
 run.bat
+
+main/migrations/
+main/models/__pycache__/
+main/models/*.pyc
+main/views/__pycache__/
+main/views/*.pyc
+lib/__pycache__/
