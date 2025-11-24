@@ -16,6 +16,7 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path
+from django.conf import settings
 
 from main import views
 
@@ -45,3 +46,5 @@ urlpatterns = [
 ] 
 
 # + static("/", document_root="./z_dist")
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

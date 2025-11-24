@@ -1,0 +1,13 @@
+cimpvenv/
+__pycache__/
+config/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+test/
+z_dist/
+.DS_Store
+db.sqlite3
+run.bat

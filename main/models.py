@@ -2,7 +2,7 @@ from django.db import models
 
 # Create your models here.
 from django.contrib.auth.models import AbstractUser
-from django.contrib.auth.hashers import make_password,check_password
+from django.contrib.auth.hashers import make_password, check_password
 import traceback
 from django.db.models import Q
 from django.core.paginator import Paginator, EmptyPage
@@ -10,26 +10,26 @@ from django.http import JsonResponse
 from django.utils import timezone
 import json
 
-# 可以通过 命令 python  manage.py createsuperuser 来创建超级管理员
-# 就是在这User表中添加记录
+# You can create a superuser via command: python manage.py createsuperuser
+# This adds a record to this User table
 class User(AbstractUser):
     id = models.BigAutoField(primary_key=True)
 
-    # 用户类型  
-    # 1： 超管 | 1000： 普通管理员  | 2000：学生  |  3000： 老师 
+    # User Type
+    # 1: Super Admin | 1000: Admin | 2000: Student | 3000: Teacher
     usertype = models.PositiveIntegerField()
 
-    # 真实姓名
+    # Real Name
     realname = models.CharField(max_length=30, db_index=True)
 
-    # 学号
+    # Student Number
     studentno = models.CharField(
         max_length=10,  
         db_index=True, 
         null=True, blank=True
         )
 
-    # 备注描述
+    # Description / Remarks
     desc = models.CharField(max_length=500, null=True, blank=True)
 
     REQUIRED_FIELDS = ['usertype', 'realname']
@@ -38,7 +38,7 @@ class User(AbstractUser):
         db_table = "cimp_user"
     
     
-    @staticmethod # 静态方法不需要实例化就能调用  
+    @staticmethod 
     def addone(data):
         try:
             user = User.objects.create(
@@ -50,11 +50,11 @@ class User(AbstractUser):
                 desc = data['desc']
             )
             
-            return {'ret':0, 'id': user.id}
+            return {'ret': 0, 'id': user.id}
         
         except:
             err = traceback.format_exc()
-            return {'ret':2, 'msg': err}
+            return {'ret': 2, 'msg': err}
         
         
     @staticmethod 
@@ -66,8 +66,9 @@ class User(AbstractUser):
                                      'studentno', 
                                      'desc', 
                                      'usertype')\
-                .order_by('-id') # 这样排序最先添加的就在最前面
-            # 查看是否有 关键字 搜索 参数
+                .order_by('-id') # Order by ID descending (newest first)
+            
+            # Check for keyword search parameters
             if keywords:
                 conditions = [Q(username__contains=one) for one in keywords.split(' ') if one]
                 query = Q()
@@ -75,16 +76,15 @@ class User(AbstractUser):
                     query &= condition
                 qs = qs.filter(query)
 
-            # 使用分页对象，设定每页多少条记录
+            # Use Paginator
             pgnt = Paginator(qs, pagesize)
 
-            # 从数据库中读取数据，指定读取其中第几页
+            # Read specific page from database
             page = pgnt.page(pagenum)
 
-            # 将 QuerySet 对象 转化为 list 类型
+            # Convert QuerySet to list
             retlist = list(page)
 
-            # total指定了 一共有多少数据
             return {'ret': 0, 'items': retlist,'total': pgnt.count, 'keywords': keywords}
         
         except EmptyPage:
@@ -92,7 +92,7 @@ class User(AbstractUser):
         
         except:
             err = traceback.format_exc()
-            return {'ret':2, 'msg': err}
+            return {'ret': 2, 'msg': err}
     
     @staticmethod 
     def modifyone(oid, newdata):
@@ -102,10 +102,10 @@ class User(AbstractUser):
             if 'username' in newdata:
                 username = newdata['username']
                 if User.objects.filter(username=username).exists():
-                    return {'ret':3, 'msg':f'登录名为{username}的用户已存在'}
+                    return {'ret': 3, 'msg': f'Username {username} already exists'}
             
             if 'password' in newdata:
-                # 把密码从字典里删掉就不会在后面的循环里被覆盖了
+                # Pop password to prevent overwriting in the loop below
                 user.password = make_password(newdata.pop('password')) 
                 
             for field, value in newdata.items():
@@ -113,16 +113,16 @@ class User(AbstractUser):
             
             user.save()
             
-            return {'ret':0}
+            return {'ret': 0}
         
         except User.DoesNotExist:
-            return {'ret': 1, 'msg':f'id为{oid}的用户不存在'}
+            return {'ret': 1, 'msg': f'User with id {oid} does not exist'}
         
         except:
             err = traceback.format_exc()
             return {'ret': 2, 'msg': err}
         
-    @staticmethod # 静态方法不需要实例化就能调用  
+    @staticmethod 
     def deleteone(oid):
         try:
             user = User.objects.get(id=oid)
@@ -132,39 +132,33 @@ class User(AbstractUser):
             return {'ret': 0}
         
         except User.DoesNotExist:
-            return {'ret': 1, 'msg':f'id为{oid}的用户不存在'}
+            return {'ret': 1, 'msg': f'User with id {oid} does not exist'}
         
         except:
             err = traceback.format_exc()
             return {'ret': 2, 'msg': err}
 
-# 通知管理，用来 列出、添加、删除、封禁、发布系统中的通知       
+# Notice Management: List, Add, Delete, Ban, Publish notices
 class Notice(models.Model):
     
     id = models.BigAutoField(primary_key=True)
     
-    # 创建时间，为iso格式
+    # Creation time, ISO format
     pubdate = models.DateTimeField(default=timezone.now)
     
-    # 创建者的id，使用外键与 User 模型的 id 字段关联
-    author = models.ForeignKey(User, on_delete=models.CASCADE, related_name = 'notice')
+    # Author ID, ForeignKey to User
+    author = models.ForeignKey(User, on_delete=models.CASCADE, related_name='notice')
     
-    # 创建者的真实姓名，直接从关联的 User 模型中获取
+    # Author Real Name
     author_realname = models.CharField(max_length=30, db_index=True)
     
     title = models.CharField(max_length=1000)
     
-    # 通知的内容，如果请求参数中withoutcontent值为true，则没有该字段
+    # Content. If 'withoutcontent' is true in request, this field is omitted
     content = models.TextField()
     
-    # 通知的状态。 正常发布状态：1， 撤回状态：2，封禁状态：3
+    # Status: 1: Published, 2: Withdrawn, 3: Banned
     status = models.PositiveIntegerField() 
-    
-    # 为了确保author_realname字段保持最新，可以使用save方法来更新它
-    # def save(self, *args, **kwargs):
-    #     if self.author:
-    #         self.author_realname = self.author.realname
-    #     super().save(self, *args, **kwargs)
     
     @staticmethod
     def addone(data, author):
@@ -195,7 +189,7 @@ class Notice(models.Model):
                                         "status"
             )
             
-            # 筛选发布状态为1的query set
+            # Filter for published status (1)
             qs = qs.filter(status=1)
             
             if keywords:
@@ -204,7 +198,10 @@ class Notice(models.Model):
                 for condition in conditions:
                     query &= condition
                 qs = qs.filter(query)
-                
+            
+            # Order by ID descending
+            qs = qs.order_by('-id')
+
             pgnt = Paginator(qs, pagesize)
             
             page = pgnt.page(pagenum)
@@ -242,6 +239,7 @@ class Notice(models.Model):
                     query &= condition
                 qs = qs.filter(query)
                 
+            qs = qs.order_by('-id')
             pgnt = Paginator(qs, pagesize)
             
             page = pgnt.page(pagenum)
@@ -272,13 +270,12 @@ class Notice(models.Model):
                                         "status"
             )
             
-            # 返回查询集中的第一个对象，或者如果查询集为空，则返回 None。first是一个快捷方法，用于从查询集中获取单个对象，而无需进行完整的迭代。
             qs = qs.filter(id=notice_id).first()
             
             return {'ret': 0, 'rec': qs}
             
         except Notice.DoesNotExist:
-            return {'ret': 1, 'msg': f'id为{notice_id}的用户不存在'}
+            return {'ret': 1, 'msg': f'Notice with id {notice_id} does not exist'}
         except:
             err = traceback.format_exc()
             return {'ret': 2, 'msg': err}
@@ -296,7 +293,7 @@ class Notice(models.Model):
             return {'ret': 0}
             
         except Notice.DoesNotExist:
-            return {'ret': 1, 'msg': f'id为{notice_id}的用户不存在'}
+            return {'ret': 1, 'msg': f'Notice with id {notice_id} does not exist'}
         except:
             err = traceback.format_exc()
             return {'ret': 2, 'msg': err}
@@ -313,7 +310,7 @@ class Notice(models.Model):
             return {'ret': 0, 'status': 3}
             
         except Notice.DoesNotExist:
-            return {'ret': 1, 'msg': f'id为{notice_id}的用户不存在'}
+            return {'ret': 1, 'msg': f'Notice with id {notice_id} does not exist'}
         except:
             err = traceback.format_exc()
             return {'ret': 2, 'msg': err}
@@ -331,7 +328,7 @@ class Notice(models.Model):
             return {'ret': 0, 'status': 1}
             
         except Notice.DoesNotExist:
-            return {'ret': 1, 'msg': f'id为{notice_id}的用户不存在'}
+            return {'ret': 1, 'msg': f'Notice with id {notice_id} does not exist'}
         except:
             err = traceback.format_exc()
             return {'ret': 2, 'msg': err}
@@ -346,31 +343,20 @@ class Notice(models.Model):
             return {'ret': 0}
             
         except Notice.DoesNotExist:
-            return {'ret': 1, 'msg': f'id为{notice_id}的用户不存在'}
+            return {'ret': 1, 'msg': f'Notice with id {notice_id} does not exist'}
         except:
             err = traceback.format_exc()
             return {'ret': 2, 'msg': err}
                
-# 新闻管理，用来 列出、添加、删除、封禁、发布系统中的新闻      
+# News Management: List, Add, Delete, Ban, Publish news
 class News(models.Model):
     
     id = models.BigAutoField(primary_key=True)
-    
-    # 创建时间，为iso格式
     pubdate = models.DateTimeField(default=timezone.now)
-    
-    # 创建者的id，使用外键与 User 模型的 id 字段关联
-    author = models.ForeignKey(User, on_delete=models.CASCADE, related_name = 'news')
-    
-    # 创建者的真实姓名，直接从关联的 User 模型中获取
+    author = models.ForeignKey(User, on_delete=models.CASCADE, related_name='news')
     author_realname = models.CharField(max_length=30, db_index=True)
-    
     title = models.CharField(max_length=1000)
-    
-    # 新闻的内容，如果请求参数中withoutcontent值为true，则没有该字段
     content = models.TextField()
-    
-    # 新闻的状态。 正常发布状态：1， 撤回状态：2，封禁状态：3
     status = models.PositiveIntegerField()
     
     @staticmethod
@@ -402,7 +388,6 @@ class News(models.Model):
                                         "status"
             )
             
-            # 筛选发布状态为1的query set
             qs = qs.filter(status=1)
             
             if keywords:
@@ -411,11 +396,10 @@ class News(models.Model):
                 for condition in conditions:
                     query &= condition
                 qs = qs.filter(query)
-                
+            
+            qs = qs.order_by('-id')
             pgnt = Paginator(qs, pagesize)
-            
             page = pgnt.page(pagenum)
-            
             retlist = list(page)
             
             if withoutcontent:
@@ -448,11 +432,10 @@ class News(models.Model):
                 for condition in conditions:
                     query &= condition
                 qs = qs.filter(query)
-                
+            
+            qs = qs.order_by('-id')
             pgnt = Paginator(qs, pagesize)
-            
             page = pgnt.page(pagenum)
-            
             retlist = list(page)
             
             if withoutcontent:
@@ -479,13 +462,12 @@ class News(models.Model):
                                         "status"
             )
             
-            # 返回查询集中的第一个对象，或者如果查询集为空，则返回 None。first是一个快捷方法，用于从查询集中获取单个对象，而无需进行完整的迭代。
             qs = qs.filter(id=news_id).first()
             
             return {'ret': 0, 'rec': qs}
             
         except Notice.DoesNotExist:
-            return {'ret': 1, 'msg': f'id为{news_id}的用户不存在'}
+            return {'ret': 1, 'msg': f'News with id {news_id} does not exist'}
         except:
             err = traceback.format_exc()
             return {'ret': 2, 'msg': err}
@@ -503,7 +485,7 @@ class News(models.Model):
             return {'ret': 0}
             
         except News.DoesNotExist:
-            return {'ret': 1, 'msg': f'id为{news_id}的用户不存在'}
+            return {'ret': 1, 'msg': f'News with id {news_id} does not exist'}
         except:
             err = traceback.format_exc()
             return {'ret': 2, 'msg': err}
@@ -520,7 +502,7 @@ class News(models.Model):
             return {'ret': 0, 'status': 3}
             
         except News.DoesNotExist:
-            return {'ret': 1, 'msg': f'id为{news_id}的用户不存在'}
+            return {'ret': 1, 'msg': f'News with id {news_id} does not exist'}
         except:
             err = traceback.format_exc()
             return {'ret': 2, 'msg': err}
@@ -538,7 +520,7 @@ class News(models.Model):
             return {'ret': 0, 'status': 1}
             
         except News.DoesNotExist:
-            return {'ret': 1, 'msg': f'id为{news_id}的用户不存在'}
+            return {'ret': 1, 'msg': f'News with id {news_id} does not exist'}
         except:
             err = traceback.format_exc()
             return {'ret': 2, 'msg': err}
@@ -553,12 +535,12 @@ class News(models.Model):
             return {'ret': 0}
             
         except News.DoesNotExist:
-            return {'ret': 1, 'msg': f'id为{news_id}的用户不存在'}
+            return {'ret': 1, 'msg': f'News with id {news_id} does not exist'}
         except:
             err = traceback.format_exc()
             return {'ret': 2, 'msg': err}
         
-# 论文管理，用来列出、添加、删除、封禁、发布、撤回系统中的论文。
+# Paper Management: List, Add, Delete, Ban, Publish, Withdraw papers
 class Paper(models.Model):
     id = models.BigAutoField(primary_key=True)
     pubdate = models.DateTimeField(default=timezone.now)
@@ -566,9 +548,9 @@ class Paper(models.Model):
     author_realname = models.CharField(max_length=30, db_index=True)
     title = models.CharField(max_length=1000)
     content = models.TextField()
-    # 论文点赞数量
+    # Thumb up count
     thumbupcount = models.PositiveBigIntegerField(default=0)
-    # 论文的状态。 正常发布状态：1， 撤回状态：2，封禁状态：3
+    # Status: 1: Published, 2: Withdrawn, 3: Banned
     status = models.PositiveIntegerField()
     
     @staticmethod
@@ -598,13 +580,12 @@ class Paper(models.Model):
                                         "status"
             )
             
-            # 返回查询集中的第一个对象，或者如果查询集为空，则返回 None。first是一个快捷方法，用于从查询集中获取单个对象，而无需进行完整的迭代。
             qs = qs.filter(id=paper_id).first()
             
             return {'ret': 0, 'rec': qs}
             
         except Paper.DoesNotExist:
-            return {'ret': 1, 'msg': f'id为{paper_id}的用户不存在'}
+            return {'ret': 1, 'msg': f'Paper with id {paper_id} does not exist'}
         except:
             err = traceback.format_exc()
             return {'ret': 2, 'msg': err}
@@ -633,7 +614,8 @@ class Paper(models.Model):
                     query &= condition
                 
                 qs = qs.filter(query)
-                
+            
+            qs = qs.order_by('-id')
             pgnt = Paginator(qs, pagesize)
             page = pgnt.page(pagenum)
             
@@ -670,7 +652,8 @@ class Paper(models.Model):
                     query &= condition
                 
                 qs = qs.filter(query)
-                
+            
+            qs = qs.order_by('-id')
             pgnt = Paginator(qs, pagesize)
             page = pgnt.page(pagenum)
             
@@ -707,7 +690,8 @@ class Paper(models.Model):
                     query &= condition
                 
                 qs = qs.filter(query)
-                
+            
+            qs = qs.order_by('-id')
             pgnt = Paginator(qs, pagesize)
             page = pgnt.page(pagenum)
             
@@ -730,7 +714,7 @@ class Paper(models.Model):
             paper = Paper.objects.get(id=paper_id)
             
             if paper.author != current_user:
-                return {'ret': 2, 'msg': '仅限论文作者修改'}
+                return {'ret': 2, 'msg': 'Only the author can modify the paper'}
             
             for field, value in newdata:
                 setattr(paper, field, value)
@@ -740,7 +724,7 @@ class Paper(models.Model):
             return {'ret': 0}
     
         except Paper.DoesNotExist:
-            return {'ret': 1, 'msg': f'id为{paper_id}的用户不存在'}
+            return {'ret': 1, 'msg': f'Paper with id {paper_id} does not exist'}
         except:
             err = traceback.format_exc()
             return {'ret': 2, 'msg': err}
@@ -751,7 +735,7 @@ class Paper(models.Model):
             paper = Paper.objects.get(id=paper_id)
             
             if paper.author != current_user:
-                return {'ret': 2, 'msg': '仅限论文作者撤回'}
+                return {'ret': 2, 'msg': 'Only the author can withdraw the paper'}
             
             paper.status = 2
             
@@ -760,7 +744,7 @@ class Paper(models.Model):
             return {'ret': 0, 'status': 2}
     
         except Paper.DoesNotExist:
-            return {'ret': 1, 'msg': f'id为{paper_id}的用户不存在'}
+            return {'ret': 1, 'msg': f'Paper with id {paper_id} does not exist'}
         except:
             err = traceback.format_exc()
             return {'ret': 2, 'msg': err}
@@ -777,7 +761,7 @@ class Paper(models.Model):
             return {'ret': 0, 'status': 3}
     
         except Paper.DoesNotExist:
-            return {'ret': 1, 'msg': f'id为{paper_id}的用户不存在'}
+            return {'ret': 1, 'msg': f'Paper with id {paper_id} does not exist'}
         except:
             err = traceback.format_exc()
             return {'ret': 2, 'msg': err}
@@ -788,7 +772,7 @@ class Paper(models.Model):
             paper = Paper.objects.get(id=paper_id)
             
             if paper.author != current_user and current_user.is_staff == False:
-                return {'ret': 2, 'msg': '仅限管理员用户和论文作者解禁论文'}
+                return {'ret': 2, 'msg': 'Only Admin and Author can publish the paper'}
             
             paper.status = 1
             
@@ -797,7 +781,7 @@ class Paper(models.Model):
             return {'ret': 0, 'status': 1}
     
         except Paper.DoesNotExist:
-            return {'ret': 1, 'msg': f'id为{paper_id}的用户不存在'}
+            return {'ret': 1, 'msg': f'Paper with id {paper_id} does not exist'}
         except:
             err = traceback.format_exc()
             return {'ret': 2, 'msg': err}
@@ -808,19 +792,19 @@ class Paper(models.Model):
             paper = Paper.objects.get(id=paper_id)
             
             if paper.author != current_user and current_user.is_staff == False:
-                return {'ret': 2, 'msg': '仅限管理员用户和论文作者删除论文'}
+                return {'ret': 2, 'msg': 'Only Admin and Author can delete the paper'}
             
             paper.delete()
             
             return {'ret': 0}
     
         except Paper.DoesNotExist:
-            return {'ret': 1, 'msg': f'id为{paper_id}的用户不存在'}
+            return {'ret': 1, 'msg': f'Paper with id {paper_id} does not exist'}
         except:
             err = traceback.format_exc()
             return {'ret': 2, 'msg': err}
    
-# 首页设置，用来获取、设置显示在网站首页的信息
+# Homepage Config
 class Config(models.Model):
     name = models.CharField(max_length=100, unique=True)
     value = models.TextField()
@@ -882,11 +866,11 @@ class Config(models.Model):
         dic = {one['id']: one for one in items}
         return [dic[id] for id in ids if id in dic]
 
-# 个人设置， 用来获取、设置个人信息
+# Personal Profile Settings
 class Profile(models.Model):
-    # 学生设置的老师
+    # Teacher set by student
     teacherid = models.ForeignKey(User, on_delete=models.CASCADE, related_name='teacher_profile')
-    # 学生本人
+    # Student
     studentid = models.ForeignKey(User, on_delete=models.CASCADE, related_name='student_profile')
     
     @staticmethod
@@ -899,11 +883,11 @@ class Profile(models.Model):
             
             current_user.save()
             
-            # 如果是老师登录
+            # If teacher
             if current_user.usertype == 3000:            
                 return {'ret': 0}
             
-            # 如果是学生登录
+            # If student
             if current_user.usertype == 2000:
                 if 'tearcherid' in data:
                     Profile.objects.update_or_create(teacherid=data['teacherid'], 
@@ -921,11 +905,11 @@ class Profile(models.Model):
                                             "username",
                                             "usertype",
                                             "realname")
-            # 如果是老师
+            # If teacher
             if current_user.usertype == 3000:
                 return {'ret': 0, 'profile': profile_user}
                 
-            # 如果是学生
+            # If student
             elif current_user.usertype == 2000:
                 profile = Profile.objects.get(studentid=current_user.id)
                 if profile:
@@ -934,7 +918,7 @@ class Profile(models.Model):
                 else:
                     profile_user["teacher"] = {
                                                     "id": -1,
-                                                    "realname": "尚未设置"}
+                                                    "realname": "Not Set"}
                 return {'ret': 0, 'profile': profile_user}
         except:
             err = traceback.format_exc()
@@ -955,7 +939,7 @@ class Profile(models.Model):
                 qs = qs[:30]
             retlist = list(qs)
             
-            return {"ret": 0, "items":retlist, "total": qs.count(), "keyword": keywords}
+            return {"ret": 0, "items": retlist, "total": qs.count(), "keyword": keywords}
                 
         except:
             err = traceback.format_exc()
@@ -984,7 +968,7 @@ class Thumbup(models.Model):
         
             return {"ret": 0, "thumbupcount": paper.thumbupcount}
         except Paper.DoesNotExist:
-            return {'ret': 1, 'msg': f'id为{paper_id}的用户不存在'}
+            return {'ret': 1, 'msg': f'Paper with id {paper_id} does not exist'}
         except:
             err = traceback.format_exc()
             return {'ret': 2, 'msg': err}
@@ -994,22 +978,152 @@ class GraduateDesign(models.Model):
     
     id = models.BigAutoField(primary_key=True)
 
-    # 创建者的id，使用外键与 User 模型的 id 字段关联
-    creator = models.ForeignKey(User, on_delete=models.CASCADE, related_name = 'notice')
+    # Creator (Student), ForeignKey to User
+    creator = models.ForeignKey(User, on_delete=models.CASCADE, related_name = 'GraduateDesign')
     
-    # 创建者的真实姓名，直接从关联的 User 模型中获取
+    # Creator's real name
     creator_realname = models.CharField(max_length=30, db_index=True)
     
     title = models.CharField(max_length=1000)
     
-    # "结束"， "主题被驳回"
-    currentstate = models.CharField(max_length=200)
+    # Current State (Default: Topic Created)
+    currentstate = models.CharField(max_length=200, default='Topic Created')
     
-    # 创建时间，为iso格式
+    # Creation date
     createdate = models.DateTimeField(default=timezone.now)
     
+    class Meta:
+        db_table = "cimp_graduatedesign"
+        
+    # =========================================================
+    #               Workflow Configuration (Core Logic)
+    # =========================================================
+    
+    # Permission Constants
+    PERMISSION_STUDENT = 1              # Any student (usertype=2000)
+    PERMISSION_CREATOR = 2              # Creator only
+    PERMISSION_TEACHER_OF_CREATOR = 3   # Creator's teacher only (usertype=3000)
+    PERMISSION_ADMIN = 4                # Admin
+
+    # State Machine Rules
+    WF_RULE = {
+        "Start": {
+            "actions": {
+                "create_topic": {
+                    "name": "Create Topic",
+                    "submitdata": [
+                        {"name": "Graduate Design Title", "type": "text", "check_string_len": [1, 50]},
+                        {"name": "Topic Description", "type": "richtext", "check_string_len": [10, 10000]},
+                    ],
+                    "whocan": PERMISSION_STUDENT,
+                    "next": "Topic Created"
+                }
+            }
+        },
+        "Topic Created": {
+            "actions": {
+                "reject_topic": {
+                    "name": "Reject Topic",
+                    "submitdata": [
+                        {"name": "Rejection Reason", "type": "textarea", "check_string_len": [0, 10000]}
+                    ],
+                    "whocan": PERMISSION_TEACHER_OF_CREATOR,
+                    "next": "Topic Rejected"
+                },
+                "approve_topic": {
+                    "name": "Approve Topic",
+                    "submitdata": [
+                        {"name": "Comments", "type": "richtext"}
+                    ],
+                    "whocan": PERMISSION_TEACHER_OF_CREATOR,
+                    "next": "Topic Approved"
+                }
+            }
+        },
+        "Topic Rejected": {
+            "actions": {
+                "modify_topic": {
+                    "name": "Modify Topic",
+                    "submitdata": [
+                        {"name": "Graduate Design Title", "type": "text", "check_string_len": [2, 100]},
+                        {"name": "Topic Description", "type": "richtext", "check_string_len": [20, 10000]}
+                    ],
+                    "whocan": PERMISSION_CREATOR,
+                    "next": "Topic Created"
+                }
+            }
+        },
+        "Topic Approved": {
+            "actions": {
+                "submit_design": {
+                    "name": "Submit Design",
+                    "submitdata": [
+                         {"name": "Design Content", "type": "richtext", "check_string_len": [10, 20000]},
+                         {"name": "Attachment Link", "type": "text", "check_string_len": [0, 200]}
+                    ],
+                    "whocan": PERMISSION_CREATOR,
+                    "next": "Design Submitted"
+                }
+            }
+        },
+        "Design Submitted": {
+             "actions": {
+                "score_design": {
+                    "name": "Grading Complete",
+                    "submitdata": [
+                        {"name": "Score", "type": "int", "check_int_range": [0, 100]},
+                        {"name": "Comments", "type": "textarea", "check_string_len": [0, 2000]}
+                    ],
+                    "whocan": PERMISSION_TEACHER_OF_CREATOR,
+                    "next": "Grading Complete"
+                },
+                "return_design": {
+                    "name": "Return for Revision",
+                    "submitdata": [
+                        {"name": "Return Reason", "type": "textarea"}
+                    ],
+                    "whocan": PERMISSION_TEACHER_OF_CREATOR,
+                    "next": "Topic Approved"
+                }
+            }
+        },
+        "Grading Complete": {
+            "actions": {} # Workflow ended, no operations
+        }
+    }
+ 
+    # =========================================================
+    #               Core Logic Methods
+    # =========================================================
+
     @staticmethod
-    def listbypage(pagenum, pagesize, keywords):
+    def check_permission(whocan, user, gd_obj=None):
+        """
+        Check if the user has permission to execute the action
+        """
+        if user.is_staff: return True # Admin has all permissions
+        
+        # 1. Student required
+        if whocan == GraduateDesign.PERMISSION_STUDENT:
+            return user.usertype == 2000
+
+        # 2. Creator required
+        if whocan == GraduateDesign.PERMISSION_CREATOR:
+            if not gd_obj: return False
+            return gd_obj.creator_id == user.id
+
+        # 3. Teacher required
+        if whocan == GraduateDesign.PERMISSION_TEACHER_OF_CREATOR:
+            if user.usertype == 3000:
+                # Simplified: any teacher can operate.
+                # Full version: query Profile table to check student-teacher relationship
+                return True 
+            return False
+
+        return False
+       
+    @staticmethod
+    def listbypage(pagenum, pagesize, keywords, current_user):
         try:
             qs = GraduateDesign.objects.values("id",
                                         "creator",
@@ -1017,7 +1131,11 @@ class GraduateDesign(models.Model):
                                         "title",
                                         "currentstate",
                                         "createdate"
-            )
+            ).order_by('-id')
+            
+            # Permission filter: Students can only see their own
+            if current_user.usertype == 2000:
+                qs = qs.filter(creator=current_user)
             
             if keywords:
                 conditions = [Q(content__contains=one) for one in keywords.split(' ') if one]
@@ -1035,33 +1153,117 @@ class GraduateDesign(models.Model):
             return {"ret": 0, "items": retlist, "total": pgnt.count, 'keywords': keywords}
             
         except EmptyPage:
-            return {'ret': 0, 'items': [], 'total': 0, 'keywords': ""}
+            return {'ret': 0, 'items': [], 'total': 0, 'keywords': keywords}
         
         except:
             err = traceback.format_exc()
             return {'ret': 2, 'msg': err} 
     
-    # 获取一个工作流信息
+    # Get workflow info
     @staticmethod
-    def getone(wf_id, withwhaticando):
+    def getone(wf_id, withwhatcanido, current_user):
         try:
-            qs = Notice.objects.values("id",
-                                        "pubdate",
-                                        "author",
-                                        "author_realname",
-                                        "title",
-                                        "content",
-                                        "status"
-            )
+            # Case 1: Request new creation UI (id = -1)
+            if wf_id == -1:
+                ret_data = {
+                    'ret': 0, 
+                    'rec': {
+                        "id": -1, "creatorname": "", "title": "", 
+                        "currentstate": "Start", "createdate": ""
+                    }
+                }
+                if withwhatcanido:
+                    # Get actions for "Start" state
+                    ret_data['whaticando'] = GraduateDesign.get_what_i_can_do(None, current_user)
+                return ret_data
+
+            # Case 2: Request existing record
+            gd = GraduateDesign.objects.get(id=wf_id)
             
-            # 返回查询集中的第一个对象，或者如果查询集为空，则返回 None。first是一个快捷方法，用于从查询集中获取单个对象，而无需进行完整的迭代。
-            qs = qs.filter(id=notice_id).first()
+            # Get step history
+            steps = list(GraduateDesignStep.objects.filter(design=gd).values(
+                'id', 'operator__realname', 'actiondate', 'actionname', 'nextstate'
+            ).order_by('id')) 
             
-            return {'ret': 0, 'rec': qs}
+            rec = {
+                "id": gd.id,
+                "creatorname": gd.creator_realname,
+                "title": gd.title,
+                "currentstate": gd.currentstate,
+                "createdate": gd.createdate,
+                "steps": steps
+            }
             
-        except Notice.DoesNotExist:
-            return {'ret': 1, 'msg': f'id为{notice_id}的用户不存在'}
+            ret_data = {'ret': 0, 'rec': rec}
+            
+            if withwhatcanido:
+                ret_data['whaticando'] = GraduateDesign.get_what_i_can_do(gd, current_user)
+                
+            return ret_data
+
+        except GraduateDesign.DoesNotExist:
+             return {'ret': 1, 'msg': f'Record does not exist'}
         except:
             err = traceback.format_exc()
             return {'ret': 2, 'msg': err}
-      
+
+    @staticmethod
+    def get_what_i_can_do(gd_obj, user):
+        """
+        Return list of executable actions based on current state and user identity
+        """
+        ret_actions = []
+        
+        # Determine current state name
+        current_state_name = "Start" if gd_obj is None else gd_obj.currentstate
+            
+        # Check configuration
+        state_rule = GraduateDesign.WF_RULE.get(current_state_name)
+        if not state_rule:
+            return []
+            
+        actions_map = state_rule.get('actions', {})
+        
+        for key, action_def in actions_map.items():
+            whocan = action_def.get('whocan')
+            # Check permission
+            if GraduateDesign.check_permission(whocan, user, gd_obj):
+                # Construct data for frontend
+                action_info = action_def.copy()
+                action_info['key'] = key
+                # If modify operation, pre-fill old values
+                if key == 'modify_topic' and gd_obj:
+                    for field in action_info['submitdata']:
+                        if field['name'] == 'Graduate Design Title':
+                            field['value'] = gd_obj.title
+                ret_actions.append(action_info)
+                
+        return ret_actions
+
+# Step Record Table
+class GraduateDesignStep(models.Model):
+    
+    id = models.BigAutoField(primary_key=True)
+    design = models.ForeignKey(GraduateDesign, on_delete=models.CASCADE, related_name='steps')
+    operator = models.ForeignKey(User, on_delete=models.CASCADE)
+    operator_realname = models.CharField(max_length=30)
+    actiondate = models.DateTimeField(default=timezone.now)
+    actionname = models.CharField(max_length=50)
+    nextstate = models.CharField(max_length=50)
+    submitdata = models.TextField() # Stores JSON string
+
+    class Meta:
+        db_table = "cimp_graduatedesign_step"
+
+    @staticmethod
+    def getstepactiondata(step_id):
+        try:
+            step = GraduateDesignStep.objects.get(id=step_id)
+            # String to Object
+            data = json.loads(step.submitdata)
+            return {'ret': 0, 'data': data}
+        except GraduateDesignStep.DoesNotExist:
+             return {'ret': 1, 'msg': 'Step does not exist'}
+        except:
+            err = traceback.format_exc()
+            return {'ret': 2, 'msg': err}
